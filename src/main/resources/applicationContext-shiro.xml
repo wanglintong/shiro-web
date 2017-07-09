@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop   
+    	http://www.springframework.org/schema/aop/spring-aop-3.0.xsd  
+		http://www.springframework.org/schema/util 
+		http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<bean id="sessionIdGenerator"
+		class="org.apache.shiro.session.mgt.eis.JavaUuidSessionIdGenerator"></bean>
+	<bean id="sessionDAO" class="cn.com.zlqf.shiro.dao.MySessionDao">
+		<property name="sessionIdGenerator" ref="sessionIdGenerator"></property>
+	</bean>
+	<bean id="sessionListener" class="cn.com.zlqf.shiro.listener.MySessionListener"></bean>
+
+	<bean id="sessionManager"
+		class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
+		<!-- session有效期 单位毫秒 -->
+		<property name="globalSessionTimeout" value="180000" />
+		<!-- cookie名称 -->
+		<property name="sessionIdCookie.name" value="jsid" />
+		<property name="sessionIdCookie.path" value="/" />
+		<property name="sessionIdCookie.domain" value="localhost" />
+		<!-- cookie有效期 单位秒 -->
+		<property name="sessionIdCookie.maxAge" value="-1" />
+		<property name="sessionIdCookie.httpOnly" value="true" />
+		<property name="sessionDAO" ref="sessionDAO" />
+	</bean>
+
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<property name="sessionManager" ref="sessionManager" />
+		<property name="realms">
+			<list>
+				<ref bean="userRealm" />
+			</list>
+		</property>
+	</bean>
+
+	<bean id="userRealm" class="cn.com.zlqf.shiro.realm.UserRealm">
+		<property name="credentialsMatcher">
+			<bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+				<property name="hashAlgorithmName" value="MD5">
+				</property>
+				<property name="hashIterations" value="2">
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="formAuthenticationFilter"
+		class="org.apache.shiro.web.filter.authc.FormAuthenticationFilter">
+		<property name="usernameParam" value="username" />
+		<property name="passwordParam" value="password" />
+		<!-- 登录失败，跳转到loginUrl  如果登录成功了，会跳转到上一个访问的页面或successUrl -->
+		<property name="loginUrl" value="/login.do" />
+	</bean>
+
+	<!-- 6. 配置 ShiroFilter. 6.1 id 必须和 web.xml 文件中配置的 DelegatingFilterProxy 
+		的 <filter-name> 一致. 若不一致, 则会抛出: NoSuchBeanDefinitionException. 因为 Shiro 会来 
+		IOC 容器中查找和 <filter-name> 名字对应的 filter bean. -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<property name="securityManager" ref="securityManager" />
+		<property name="loginUrl" value="/loginPage.do" />
+		<property name="successUrl" value="/index.do" />
+		<property name="unauthorizedUrl" value="/unauthorized.do" />
+		
+		<property name="filters">
+			<util:map>
+				<entry key="authc" value-ref="formAuthenticationFilter" />
+			</util:map>
+		</property>
+		
+		<property name="filterChainDefinitions">
+			<value>
+				/favicon.ico = anon
+				/res/* = anon
+				/ = anon
+				/index.jsp = anon
+				/index.do = anon
+				/user/testAdd.do = anon
+				/loginPage.do = anon
+				/login.do = authc
+				/logout = logout
+				/** = user
+			</value>
+		</property>
+	</bean>
+
+
+	<!-- 4. 配置 LifecycleBeanPostProcessor. 可以自定的来调用配置在 Spring IOC 容器中 shiro 
+		bean 的生命周期方法. -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor" />
+</beans>
